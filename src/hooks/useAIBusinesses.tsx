@@ -26,16 +26,25 @@ export function useAIBusinesses(options: UseAIBusinessesOptions = {}) {
         body: { location, category: options.category },
       });
 
+      // When supabase.functions.invoke receives a non-2xx response,
+      // the response body is still in `data`, but `fnError` is also set.
+      // We need to check data.error first for our custom error messages.
+      if (data?.error) {
+        const message = typeof data.error === 'string' ? data.error : 'Failed to discover businesses';
+        setError(new Error(message));
+        setBusinesses([]);
+        return { ok: false as const, message };
+      }
+
       if (fnError) {
-        // Supabase wraps non-2xx responses into fnError.
-        throw fnError;
+        // Fallback for other types of errors (network, etc.)
+        const message = fnError.message || 'Failed to discover businesses';
+        setError(new Error(message));
+        setBusinesses([]);
+        return { ok: false as const, message };
       }
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setBusinesses(data.businesses || []);
+      setBusinesses(data?.businesses || []);
       return { ok: true as const };
     } catch (err) {
       console.error('Error discovering businesses:', err);
