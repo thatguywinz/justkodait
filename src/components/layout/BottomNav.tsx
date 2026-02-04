@@ -1,9 +1,9 @@
 /**
  * Bottom Navigation Component
- * Mobile-first navigation bar with 4 main tabs
+ * Mobile-first navigation bar with 3 main tabs
  */
 
-import { Home, Compass, MapPin, User } from 'lucide-react';
+import { Home, Compass, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,6 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/', label: 'Home', icon: Home },
   { path: '/discover', label: 'Discover', icon: Compass },
-  { path: '/map', label: 'Map', icon: MapPin },
   { path: '/profile', label: 'Profile', icon: User },
 ];
 
