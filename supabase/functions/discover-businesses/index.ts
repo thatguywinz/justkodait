@@ -2,8 +2,24 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+function extractRetryAfterSeconds(errorBodyText: string): number | null {
+  try {
+    const parsed = JSON.parse(errorBodyText);
+    const delay = parsed?.error?.details?.find((d: any) => d?.retryDelay)?.retryDelay as
+      | string
+      | undefined;
+    if (!delay) return null;
+    // retryDelay is like "35s"
+    const m = String(delay).match(/(\d+)/);
+    return m ? Number(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,7 +75,37 @@ Return ONLY the JSON array, no other text or markdown.`;
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Gemini API error:", response.status, errorText);
-      throw new Error(`Gemini API error: ${response.status}`);
+
+      // Pass through useful status codes instead of turning everything into a 500.
+      if (response.status === 429) {
+        const retryAfterSeconds = extractRetryAfterSeconds(errorText);
+        const headers: Record<string, string> = {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        };
+        if (retryAfterSeconds != null) headers["Retry-After"] = String(retryAfterSeconds);
+
+        return new Response(
+          JSON.stringify({
+            error:
+              "AI quota exceeded / rate limited. Please try again in a bit, or enable billing/quotas for your Gemini API key.",
+            retry_after_seconds: retryAfterSeconds,
+          }),
+          { status: 429, headers }
+        );
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        return new Response(
+          JSON.stringify({ error: "Gemini API key is unauthorized. Please verify the key and that the Gemini API is enabled." }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ error: `Gemini API error: ${response.status}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
