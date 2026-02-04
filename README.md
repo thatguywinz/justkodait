@@ -1,73 +1,170 @@
-# Welcome to your Lovable project
+# Koda - The Key to Your Neighborhood
 
-## Project info
+**Slogan:** "The key to your neighborhood"
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Koda is a modern mobile-first web application that helps users discover and support small local businesses in their communities. Find hidden gems, explore new places, and support local entrepreneurs.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 🌟 Features
 
-**Use Lovable**
+### 🏠 Home Tab
+- **Business Listings**: Browse all local businesses in a beautiful card layout
+- **Search**: Find businesses by name, description, or address
+- **Category Filters**: Filter by restaurant, café, bakery, bar, retail, beauty, fitness, and more
+- **Sort Options**: Sort by rating, number of reviews, name, or distance
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 🧭 Discover Tab (Tinder-Style)
+- **Swipe Right**: Save businesses to your favorites
+- **Swipe Left**: Skip to the next business
+- **Category Selection**: Choose which type of business you want to explore
+- **Gesture Support**: Touch and mouse drag for smooth swiping
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🗺️ Map Tab
+- **Interactive Map**: View all businesses on an OpenStreetMap-powered map
+- **Location Services**: See your current location and nearby businesses
+- **Quick Details**: Tap markers to see business info and navigate to details
 
-**Use your preferred IDE**
+### 👤 Profile Tab
+- **Favorites**: View and manage all saved businesses
+- **Review History**: See all reviews you've written
+- **Profile Settings**: Update your display name and postal code
+- **Account Management**: Sign in, sign up, and sign out
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### ✨ Additional Features
+- **Onboarding Tutorial**: Quick 5-second walkthrough for new users
+- **Deals & Coupons**: Special offers displayed on business cards
+- **Reviews & Ratings**: Leave and view ratings for businesses
+- **Bot Verification**: Math captcha during signup to prevent bots
+- **Verified Badges**: Trusted businesses display verification badges
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛠️ Technology Stack
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+| Category | Technology |
+|----------|------------|
+| Frontend | React 18 + TypeScript + Vite |
+| Styling | Tailwind CSS + shadcn/ui components |
+| State Management | TanStack Query (React Query) |
+| Animations | React Spring |
+| Maps | React Leaflet + OpenStreetMap |
+| Backend | Lovable Cloud (Supabase) |
+| Authentication | Email/password with verification |
+| Database | PostgreSQL with Row-Level Security |
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 📱 Mobile-First Design
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+Koda is designed primarily for mobile devices with:
+- Bottom navigation bar
+- Touch-friendly interactions
+- Safe area support for modern devices
+- Responsive layouts that adapt to all screen sizes
+
+---
+
+## 🗃️ Database Structure
+
+### Tables
+| Table | Description |
+|-------|-------------|
+| `businesses` | Store business information (name, category, location, ratings) |
+| `reviews` | User reviews with ratings and comments |
+| `favorites` | User's saved businesses |
+| `deals` | Special offers and coupons |
+| `profiles` | User profile information |
+| `swipe_history` | Track swipe actions for the Discover feature |
+
+### Security
+- Row-Level Security (RLS) enabled on all tables
+- Users can only access their own favorites, reviews, and swipe history
+- Businesses and deals are publicly readable
+
+---
+
+## 🚀 Getting Started
+
+1. The app will start with a quick onboarding tutorial
+2. Browse businesses on the Home tab or swipe through them on Discover
+3. Sign up to save favorites and leave reviews
+4. Check the Map tab to see what's nearby
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── business/         # Business-related components
+│   │   ├── BusinessCard.tsx
+│   │   ├── BusinessDetail.tsx
+│   │   ├── CategoryFilter.tsx
+│   │   ├── ReviewForm.tsx
+│   │   ├── ReviewList.tsx
+│   │   └── SearchBar.tsx
+│   ├── discover/         # Discover/swipe components
+│   │   └── SwipeCard.tsx
+│   ├── layout/           # Layout components
+│   │   ├── BottomNav.tsx
+│   │   └── PageContainer.tsx
+│   └── ui/               # shadcn/ui components
+├── hooks/                # Custom React hooks
+│   ├── useAuth.tsx       # Authentication hook
+│   ├── useBusinesses.tsx # Business data hook
+│   ├── useFavorites.tsx  # Favorites management
+│   └── useReviews.tsx    # Reviews management
+├── pages/                # Page components
+│   ├── AuthPage.tsx      # Login/signup
+│   ├── DiscoverPage.tsx  # Tinder-style discovery
+│   ├── HomePage.tsx      # Main business feed
+│   ├── MapPage.tsx       # Interactive map
+│   ├── OnboardingPage.tsx# Tutorial
+│   └── ProfilePage.tsx   # User profile
+├── types/                # TypeScript types
+│   └── database.ts       # Database interfaces
+└── App.tsx               # Main app component
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📝 Libraries & Templates Used
 
-**Use GitHub Codespaces**
+- **React** - UI library
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework
+- **shadcn/ui** - Component library
+- **React Router DOM** - Client-side routing
+- **TanStack Query** - Data fetching and caching
+- **React Spring** - Animation library
+- **React Leaflet** - Map components
+- **Leaflet** - Map library
+- **Lucide React** - Icon library
+- **Sonner** - Toast notifications
+- **Zod** - Schema validation
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## 🏆 FBL Canada Competition
 
-This project is built with:
+This project was built for the **FBL Canada Byte-Sized Business Boost** competition.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Competition Requirements Met:
+- ✅ Sorting businesses by category (e.g., food, retail, services)
+- ✅ Allowing users to leave reviews or ratings
+- ✅ Sorting businesses by reviews or ratings
+- ✅ Saving or bookmarking favorite businesses
+- ✅ Displaying special deals or coupons
+- ✅ Implementing a verification step to prevent bot activity
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 📄 License
 
-## Can I connect a custom domain to my Lovable project?
+This project uses various open-source libraries and frameworks. See individual package licenses for details.
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Built with ❤️ for local communities
