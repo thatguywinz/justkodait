@@ -1,0 +1,134 @@
+/**
+ * Onboarding Page Component
+ * Quick 5-second tutorial on how to use the app
+ */
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { KeyRound, Home, Compass, MapPin, User, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const slides = [
+  {
+    icon: KeyRound,
+    title: 'Welcome to Koda',
+    description: 'Your key to discovering local gems in your neighborhood. Find the best cafes, restaurants, and hidden treasures nearby.',
+    color: 'text-primary',
+  },
+  {
+    icon: Home,
+    title: 'Explore Home',
+    description: 'Browse all local businesses, search by name, filter by category, and sort by ratings. Find exactly what you\'re looking for.',
+    color: 'text-chart-1',
+  },
+  {
+    icon: Compass,
+    title: 'Swipe to Discover',
+    description: 'Like Tinder, but for places! Swipe right to save your favorites, swipe left to skip. It\'s that simple.',
+    color: 'text-chart-2',
+  },
+  {
+    icon: MapPin,
+    title: 'See the Map',
+    description: 'View all businesses on an interactive map. Find what\'s closest to you and get directions instantly.',
+    color: 'text-chart-3',
+  },
+  {
+    icon: User,
+    title: 'Your Profile',
+    description: 'Save your favorites, leave reviews, and keep track of all the amazing places you\'ve discovered.',
+    color: 'text-chart-4',
+  },
+];
+
+export default function OnboardingPage() {
+  const navigate = useNavigate();
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const handleNext = () => {
+    if (currentSlide === slides.length - 1) {
+      localStorage.setItem('koda_onboarded', 'true');
+      navigate('/');
+    } else {
+      setCurrentSlide((prev) => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    setCurrentSlide((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleSkip = () => {
+    localStorage.setItem('koda_onboarded', 'true');
+    navigate('/');
+  };
+
+  const slide = slides[currentSlide];
+  const Icon = slide.icon;
+  const isLast = currentSlide === slides.length - 1;
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-between bg-background p-6">
+      {/* Skip button */}
+      <div className="flex w-full justify-end">
+        <Button variant="ghost" size="sm" onClick={handleSkip}>
+          Skip
+        </Button>
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className={cn(
+          'mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 transition-all duration-500',
+          slide.color
+        )}>
+          <Icon className="h-12 w-12" />
+        </div>
+
+        <h1 className="text-2xl font-bold text-foreground">{slide.title}</h1>
+        <p className="mt-4 max-w-sm text-muted-foreground">{slide.description}</p>
+      </div>
+
+      {/* Navigation */}
+      <div className="w-full space-y-4">
+        {/* Dots */}
+        <div className="flex justify-center gap-2">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentSlide(i)}
+              className={cn(
+                'h-2 rounded-full transition-all duration-300',
+                i === currentSlide ? 'w-6 bg-primary' : 'w-2 bg-muted'
+              )}
+            />
+          ))}
+        </div>
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          {currentSlide > 0 && (
+            <Button variant="outline" size="lg" onClick={handlePrev} className="flex-1">
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Back
+            </Button>
+          )}
+          <Button size="lg" onClick={handleNext} className="flex-1">
+            {isLast ? (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Get Started
+              </>
+            ) : (
+              <>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
