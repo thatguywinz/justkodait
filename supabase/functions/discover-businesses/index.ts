@@ -6,21 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function extractRetryAfterSeconds(errorBodyText: string): number | null {
-  try {
-    const parsed = JSON.parse(errorBodyText);
-    const delay = parsed?.error?.details?.find((d: any) => d?.retryDelay)?.retryDelay as
-      | string
-      | undefined;
-    if (!delay) return null;
-    // retryDelay is like "35s"
-    const m = String(delay).match(/(\d+)/);
-    return m ? Number(m[1]) : null;
-  } catch {
-    return null;
-  }
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,9 +14,9 @@ serve(async (req) => {
   try {
     const { location, category } = await req.json();
     
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     const categoryFilter = category ? ` focusing on ${category} businesses` : "";
@@ -57,63 +42,61 @@ Each business MUST have this exact structure:
 Make the businesses diverse, realistic for the area, and include a mix of categories unless a specific category was requested.
 Return ONLY the JSON array, no other text or markdown.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 4096,
-          },
-        }),
-      }
-    );
+    console.log("Calling Lovable AI Gateway for location:", location);
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "You are a local business expert. Return only valid JSON arrays, no markdown or explanation." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
+      console.error("Lovable AI error:", response.status, errorText);
 
-      // Pass through useful status codes instead of turning everything into a 500.
       if (response.status === 429) {
-        const retryAfterSeconds = extractRetryAfterSeconds(errorText);
-        const headers: Record<string, string> = {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        };
-        if (retryAfterSeconds != null) headers["Retry-After"] = String(retryAfterSeconds);
-
         return new Response(
           JSON.stringify({
-            error:
-              "AI quota exceeded / rate limited. Please try again in a bit, or enable billing/quotas for your Gemini API key.",
-            retry_after_seconds: retryAfterSeconds,
+            error: "AI rate limited. Please try again in a moment.",
+            retry_after_seconds: 30,
           }),
-          { status: 429, headers }
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Gemini API key is unauthorized. Please verify the key and that the Gemini API is enabled." }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: "AI credits exhausted. Please add credits to your Lovable workspace.",
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ error: `Gemini API error: ${response.status}` }),
+        JSON.stringify({ error: `AI service error: ${response.status}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const textContent = data.choices?.[0]?.message?.content;
     
     if (!textContent) {
-      throw new Error("No content in Gemini response");
+      console.error("No content in AI response:", JSON.stringify(data));
+      throw new Error("No content in AI response");
     }
+
+    console.log("AI response received, parsing...");
 
     // Parse the JSON from the response (handle potential markdown wrapping)
     let businesses;
@@ -125,7 +108,7 @@ Return ONLY the JSON array, no other text or markdown.`;
         throw new Error("No JSON array found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse Gemini response:", textContent);
+      console.error("Failed to parse AI response:", textContent);
       throw new Error("Failed to parse business data");
     }
 
@@ -149,6 +132,8 @@ Return ONLY the JSON array, no other text or markdown.`;
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }));
+
+    console.log(`Successfully parsed ${validatedBusinesses.length} businesses`);
 
     return new Response(JSON.stringify({ businesses: validatedBusinesses }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
