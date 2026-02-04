@@ -78,12 +78,13 @@ export default function HomePage() {
       return;
     }
     toast.info(`Discovering gems near ${locationInput}...`);
-    await discoverBusinesses(locationInput.trim());
-    if (error) {
-      toast.error('Failed to discover businesses. Please try again.');
-    } else {
-      toast.success(`Found local gems near ${locationInput}!`);
+    const result = await discoverBusinesses(locationInput.trim());
+    if (!result.ok) {
+      // Common case right now: Gemini quota is 0 / rate-limited.
+      toast.error(result.message || 'Failed to discover businesses. Please try again.');
+      return;
     }
+    toast.success(`Found local gems near ${locationInput}!`);
   };
 
   return (
@@ -194,7 +195,7 @@ export default function HomePage() {
             <BusinessCard
               key={business.id}
               business={business}
-              deals={deals[business.id]}
+              deals={deals[business.id] ?? []}
               isFavorite={isFavorite(business.id)}
               onFavoriteToggle={() => toggleFavorite(business.id)}
               onClick={() => setSelectedBusiness(business)}

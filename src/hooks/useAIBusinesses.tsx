@@ -27,6 +27,7 @@ export function useAIBusinesses(options: UseAIBusinessesOptions = {}) {
       });
 
       if (fnError) {
+        // Supabase wraps non-2xx responses into fnError.
         throw fnError;
       }
 
@@ -35,10 +36,13 @@ export function useAIBusinesses(options: UseAIBusinessesOptions = {}) {
       }
 
       setBusinesses(data.businesses || []);
+      return { ok: true as const };
     } catch (err) {
       console.error('Error discovering businesses:', err);
-      setError(err instanceof Error ? err : new Error('Failed to discover businesses'));
+      const message = err instanceof Error ? err.message : 'Failed to discover businesses';
+      setError(new Error(message));
       setBusinesses([]);
+      return { ok: false as const, message };
     } finally {
       setLoading(false);
     }
