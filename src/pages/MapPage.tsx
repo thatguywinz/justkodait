@@ -3,17 +3,20 @@
  * Interactive map showing all local businesses
  */
 
-import { useState, useEffect } from 'react';
-import { MapPin, Navigation, Layers } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MapPin, Navigation, Loader2, Sparkles } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { BusinessDetail } from '@/components/business/BusinessDetail';
 import { useBusinesses } from '@/hooks/useBusinesses';
+import { useAIBusinesses } from '@/hooks/useAIBusinesses';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Business, CATEGORY_ICONS, CATEGORY_LABELS } from '@/types/database';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { LocationSearch } from '@/components/map/LocationSearch';
+import { toast } from 'sonner';
 import 'leaflet/dist/leaflet.css';
 
 // Fix Leaflet default marker icon issue
@@ -90,13 +93,34 @@ function LocationButton({ onLocate }: { onLocate: (lat: number, lng: number) => 
   );
 }
 
+// Component to update map view when center changes
+function MapViewUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.flyTo(center, zoom || map.getZoom());
+  }, [center, zoom, map]);
+  return null;
+}
+
 export default function MapPage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([43.6532, -79.3832]); // Toronto default
+  const [showAIResults, setShowAIResults] = useState(false);
 
-  const { businesses, deals, loading } = useBusinesses({});
+  const { businesses: dbBusinesses, deals, loading: dbLoading } = useBusinesses({});
+  const { 
+    businesses: aiBusinesses, 
+    loading: aiLoading, 
+    error: aiError,
+    searchedLocation,
+    discoverBusinesses 
+  } = useAIBusinesses();
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  // Use AI businesses when available, otherwise use DB businesses
+  const businesses = showAIResults && aiBusinesses.length > 0 ? aiBusinesses : dbBusinesses;
+  const loading = showAIResults ? aiLoading : dbLoading;
 
   // Try to get user location on mount
   useEffect(() => {
@@ -114,22 +138,66 @@ export default function MapPage() {
     }
   }, []);
 
+  // Update map center when AI businesses are loaded
+  useEffect(() => {
+    if (aiBusinesses.length > 0) {
+      const validBusinesses = aiBusinesses.filter(b => b.latitude && b.longitude);
+      if (validBusinesses.length > 0) {
+        const avgLat = validBusinesses.reduce((sum, b) => sum + (b.latitude || 0), 0) / validBusinesses.length;
+        const avgLng = validBusinesses.reduce((sum, b) => sum + (b.longitude || 0), 0) / validBusinesses.length;
+        setMapCenter([avgLat, avgLng]);
+      }
+    }
+  }, [aiBusinesses]);
+
   const handleLocate = (lat: number, lng: number) => {
     setUserLocation({ lat, lng });
   };
 
+  const handleLocationSearch = async (location: string) => {
+    setShowAIResults(true);
+    toast.info(`Discovering gems near ${location}...`);
+    await discoverBusinesses(location);
+    if (aiError) {
+      toast.error('Failed to discover businesses. Please try again.');
+    } else {
+      toast.success(`Found local gems near ${location}!`);
+    }
+  };
+
   return (
     <PageContainer noPadding className="relative h-screen">
-      {/* Header Overlay */}
-      <div className="absolute left-4 right-4 top-4 z-[1000]">
+      {/* Header Overlay with Location Search */}
+      <div className="absolute left-4 right-4 top-4 z-[1000] space-y-3">
         <div className="flex items-center justify-between rounded-xl bg-card/95 p-3 shadow-lg backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <MapPin className="h-5 w-5 text-primary" />
             <h1 className="text-lg font-semibold">Nearby</h1>
           </div>
           <Badge variant="secondary" className="font-normal">
+            {loading ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : null}
             {businesses.length} places
           </Badge>
+        </div>
+        
+        {/* Location Search */}
+        <div className="rounded-xl bg-card/95 p-3 shadow-lg backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium">Discover gems with AI</span>
+          </div>
+          <LocationSearch 
+            onSearch={handleLocationSearch} 
+            isLoading={aiLoading}
+            currentLocation={searchedLocation || ''}
+          />
+          {searchedLocation && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Showing AI-discovered businesses near: {searchedLocation}
+            </p>
+          )}
         </div>
       </div>
 
@@ -140,6 +208,7 @@ export default function MapPage() {
         className="h-full w-full"
         zoomControl={false}
       >
+        <MapViewUpdater center={mapCenter} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
