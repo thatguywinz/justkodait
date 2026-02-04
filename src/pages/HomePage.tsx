@@ -3,13 +3,13 @@
  * Main feed with location-based AI search and business listings
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { KeyRound, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { CategoryFilter } from '@/components/business/CategoryFilter';
 import { BusinessCard } from '@/components/business/BusinessCard';
 import { BusinessDetail } from '@/components/business/BusinessDetail';
-import { useAIBusinesses } from '@/hooks/useAIBusinesses';
+import { useDiscovery } from '@/contexts/DiscoveryContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Business, BusinessCategory } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,24 +28,31 @@ import { SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function HomePage() {
-  const [locationInput, setLocationInput] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<BusinessCategory | null>(null);
   const [sortBy, setSortBy] = useState<'rating' | 'reviews' | 'name'>('rating');
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
 
   const { 
-    businesses: aiBusinesses, 
+    businesses, 
     loading, 
-    error,
     searchedLocation,
     discoverBusinesses 
-  } = useAIBusinesses();
+  } = useDiscovery();
+
+  // Keep location input synced with searched location
+  const [locationInput, setLocationInput] = useState(searchedLocation || '');
+  
+  useEffect(() => {
+    if (searchedLocation) {
+      setLocationInput(searchedLocation);
+    }
+  }, [searchedLocation]);
 
   const { isFavorite, toggleFavorite } = useFavorites();
 
   // Filter and sort businesses
   const filteredBusinesses = useMemo(() => {
-    let result = [...aiBusinesses];
+    let result = [...businesses];
 
     // Filter by category
     if (selectedCategory) {
@@ -66,7 +73,7 @@ export default function HomePage() {
     }
 
     return result;
-  }, [aiBusinesses, selectedCategory, sortBy]);
+  }, [businesses, selectedCategory, sortBy]);
 
   // Create a deals map (empty for AI businesses, but needed for BusinessCard)
   const deals: Record<string, never[]> = {};
@@ -80,7 +87,6 @@ export default function HomePage() {
     toast.info(`Discovering gems near ${locationInput}...`);
     const result = await discoverBusinesses(locationInput.trim());
     if (!result.ok) {
-      // Common case right now: Gemini quota is 0 / rate-limited.
       toast.error(result.message || 'Failed to discover businesses. Please try again.');
       return;
     }
@@ -134,7 +140,7 @@ export default function HomePage() {
       </div>
 
       {/* Categories and Sort */}
-      {aiBusinesses.length > 0 && (
+      {businesses.length > 0 && (
         <>
           <div className="flex items-center justify-between">
             <CategoryFilter
@@ -177,7 +183,7 @@ export default function HomePage() {
               <Skeleton className="h-3 w-1/2" />
             </div>
           ))
-        ) : aiBusinesses.length === 0 ? (
+        ) : businesses.length === 0 ? (
           <div className="col-span-full py-12 text-center">
             <MapPin className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
             <p className="text-lg font-medium text-foreground">Enter your location</p>
