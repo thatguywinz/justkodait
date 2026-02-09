@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,14 +7,87 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const VALID_CATEGORIES = [
+  "restaurant", "cafe", "bakery", "bar", "retail",
+  "beauty", "fitness", "services", "entertainment", "grocery",
+] as const;
+
+function validateInput(body: unknown): { ok: true; location: string; category: string | null } | { ok: false; error: string } {
+  if (typeof body !== "object" || body === null) {
+    return { ok: false, error: "Invalid request body" };
+  }
+
+  const { location, category } = body as Record<string, unknown>;
+
+  if (typeof location !== "string" || location.trim().length === 0) {
+    return { ok: false, error: "Location is required and must be a non-empty string" };
+  }
+
+  if (location.length > 200) {
+    return { ok: false, error: "Location is too long (max 200 characters)" };
+  }
+
+  // Sanitize location
+  const sanitizedLocation = location
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (sanitizedLocation.length === 0) {
+    return { ok: false, error: "Location contains only invalid characters" };
+  }
+
+  // Validate category
+  if (category !== undefined && category !== null) {
+    if (typeof category !== "string" || !VALID_CATEGORIES.includes(category as any)) {
+      return { ok: false, error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}` };
+    }
+  }
+
+  return { ok: true, location: sanitizedLocation, category: (category as string) || null };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { location, category } = await req.json();
-    
+    // --- Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authentication" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // --- Input Validation ---
+    const body = await req.json();
+    const validation = validateInput(body);
+    if (!validation.ok) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { location, category } = validation;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
@@ -42,7 +116,7 @@ Each business MUST have this exact structure:
 Make the businesses diverse, realistic for the area, and include a mix of categories unless a specific category was requested.
 Return ONLY the JSON array, no other text or markdown.`;
 
-    console.log("Calling Lovable AI Gateway for location:", location);
+    console.log("Calling Lovable AI Gateway for location:", location, "user:", user.id);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -92,13 +166,11 @@ Return ONLY the JSON array, no other text or markdown.`;
     const textContent = data.choices?.[0]?.message?.content;
     
     if (!textContent) {
-      console.error("No content in AI response:", JSON.stringify(data));
+      console.error("No content in AI response");
       throw new Error("No content in AI response");
     }
 
-    console.log("AI response received, parsing...");
-
-    // Parse the JSON from the response (handle potential markdown wrapping)
+    // Parse the JSON from the response
     let businesses;
     try {
       const jsonMatch = textContent.match(/\[[\s\S]*\]/);
@@ -108,11 +180,10 @@ Return ONLY the JSON array, no other text or markdown.`;
         throw new Error("No JSON array found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse AI response:", textContent);
+      console.error("Failed to parse AI response");
       throw new Error("Failed to parse business data");
     }
 
-    // Ensure each business has required fields and valid category
     const validCategories = ["restaurant", "cafe", "bakery", "bar", "retail", "beauty", "fitness", "services", "entertainment", "grocery"];
     
     const validatedBusinesses = businesses.map((b: any, index: number) => ({
@@ -141,7 +212,7 @@ Return ONLY the JSON array, no other text or markdown.`;
   } catch (error) {
     console.error("Error in discover-businesses:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "An unexpected error occurred" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
