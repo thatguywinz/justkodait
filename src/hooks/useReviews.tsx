@@ -53,7 +53,12 @@ export function useReviews(businessId?: string) {
 
   const addReview = async (businessId: string, rating: number, comment?: string) => {
     if (!user) {
-      toast.error('Please sign in to leave a review');
+      toast('Please sign in to leave a review', {
+        action: {
+          label: 'Sign In',
+          onClick: () => window.location.href = '/auth',
+        },
+      });
       return null;
     }
 

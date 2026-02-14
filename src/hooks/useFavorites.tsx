@@ -56,7 +56,12 @@ export function useFavorites() {
 
   const addFavorite = async (businessId: string) => {
     if (!user) {
-      toast.error('Please sign in to save favorites');
+      toast('Please sign in to save favorites', {
+        action: {
+          label: 'Sign In',
+          onClick: () => window.location.href = '/auth',
+        },
+      });
       return false;
     }
 
