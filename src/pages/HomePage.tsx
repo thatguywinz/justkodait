@@ -5,8 +5,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Sparkles, Loader2 } from 'lucide-react';
-import kodaLogo from '@/assets/koda-logo.png';
+import { KeyRound, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { CategoryFilter } from '@/components/business/CategoryFilter';
 import { BusinessCard } from '@/components/business/BusinessCard';
@@ -104,7 +103,7 @@ export default function HomePage() {
       <div className="flex items-center justify-between pt-2">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
-            <img src={kodaLogo} alt="Koda" className="h-6 w-6" />
+            <KeyRound className="h-6 w-6 text-primary" />
             Koda
           </h1>
           <p className="text-sm text-muted-foreground">The key to your neighborhood</p>
