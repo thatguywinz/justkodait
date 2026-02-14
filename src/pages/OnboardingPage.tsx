@@ -3,7 +3,7 @@
  * Quick 5-second tutorial on how to use the app
  */
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KeyRound, Home, Compass, MapPin, User, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,23 @@ const slides = [
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    const SWIPE_THRESHOLD = 50;
+    if (diff > SWIPE_THRESHOLD) {
+      handleNext();
+    } else if (diff < -SWIPE_THRESHOLD) {
+      handlePrev();
+    }
+    touchStartX.current = null;
+  }, [currentSlide]);
 
   const handleNext = () => {
     if (currentSlide === slides.length - 1) {
@@ -78,7 +95,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Content with side arrows */}
-      <div className="relative flex w-full flex-1 items-center justify-center">
+      <div className="relative flex w-full flex-1 items-center justify-center" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         {/* Left arrow */}
         {currentSlide > 0 && (
           <button
