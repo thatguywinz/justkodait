@@ -12,7 +12,6 @@ import { BusinessCard } from '@/components/business/BusinessCard';
 import { BusinessDetail } from '@/components/business/BusinessDetail';
 import { useDiscovery } from '@/contexts/DiscoveryContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useAuth } from '@/hooks/useAuth';
 import { Business, BusinessCategory } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -42,7 +41,7 @@ export default function HomePage() {
     searchedLocation,
     discoverBusinesses 
   } = useDiscovery();
-  const { session } = useAuth();
+  
 
   // Keep location input synced with searched location
   const [locationInput, setLocationInput] = useState(searchedLocation || '');
@@ -87,11 +86,6 @@ export default function HomePage() {
     e.preventDefault();
     if (!locationInput.trim()) {
       toast.error('Please enter an address or postal code');
-      return;
-    }
-    if (!session) {
-      toast.error('Please sign in to discover businesses');
-      navigate('/auth');
       return;
     }
     toast.info(`Discovering gems near ${locationInput}...`);

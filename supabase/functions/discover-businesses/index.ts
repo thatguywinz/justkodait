@@ -47,7 +47,6 @@ function validateInput(body: unknown): { ok: true; location: string; category: s
 
 async function geocodeAddress(location: string): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    // Use OpenStreetMap Nominatim for free geocoding
     const query = encodeURIComponent(location + ", North York, Toronto, ON, Canada");
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
@@ -61,7 +60,6 @@ async function geocodeAddress(location: string): Promise<{ latitude: number; lon
 
     const results = await response.json();
     if (!results || results.length === 0) {
-      // Fallback: try without "North York" prefix
       const fallbackQuery = encodeURIComponent(location + ", Toronto, ON, Canada");
       const fallbackResp = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${fallbackQuery}&format=json&limit=1`,
@@ -85,32 +83,22 @@ serve(async (req) => {
   }
 
   try {
-    // --- Authentication ---
+    // --- Authentication (optional - guests can browse) ---
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let userId = "anonymous";
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData } = await supabaseClient.auth.getClaims(token);
+      if (claimsData?.claims?.sub) {
+        userId = claimsData.claims.sub;
+      }
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: authError } = await supabaseClient.auth.getClaims(token);
-    if (authError || !claimsData?.claims) {
-      return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = claimsData.claims.sub;
 
     // --- Input Validation ---
     const body = await req.json();
@@ -138,6 +126,7 @@ serve(async (req) => {
     console.log("Geocoded to:", coords.latitude, coords.longitude);
 
     // --- Query nearby businesses from database ---
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceClient = createClient(
       supabaseUrl,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
