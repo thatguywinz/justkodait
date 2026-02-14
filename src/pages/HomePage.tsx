@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<BusinessCategory | null>(null);
@@ -104,6 +105,7 @@ export default function HomePage() {
           </h1>
           <p className="text-sm text-muted-foreground">The key to your neighborhood</p>
         </div>
+        <ThemeToggle />
       </div>
 
       {/* Location Input */}
