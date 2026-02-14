@@ -24,7 +24,7 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   // Don't show on auth pages
-  if (location.pathname === '/auth') return null;
+  if (location.pathname === '/auth' || location.pathname === '/onboarding') return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg safe-area-inset-bottom">
