@@ -14,8 +14,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/discover', label: 'Discover', icon: Compass },
+  { path: '/', label: 'Discover', icon: Home },
+  { path: '/discover', label: 'Choose', icon: Compass },
   { path: '/profile', label: 'Profile', icon: User },
 ];
 
