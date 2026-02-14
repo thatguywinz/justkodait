@@ -103,20 +103,17 @@ export default function OnboardingPage() {
         </div>
 
         {/* Right arrow */}
-        {!isLast && (
-          <button
-            onClick={handleNext}
-            className="absolute right-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Next slide"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        )}
+        <button
+          onClick={handleNext}
+          className="absolute right-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={isLast ? 'Get started' : 'Next slide'}
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
 
-      {/* Navigation */}
+      {/* Dots */}
       <div className="w-full space-y-4">
-        {/* Dots */}
         <div className="flex justify-center gap-2">
           {slides.map((_, i) => (
             <button
@@ -128,29 +125,6 @@ export default function OnboardingPage() {
               )}
             />
           ))}
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3">
-          {currentSlide > 0 && (
-            <Button variant="outline" size="lg" onClick={handlePrev} className="flex-1">
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Back
-            </Button>
-          )}
-          <Button size="lg" onClick={handleNext} className="flex-1">
-            {isLast ? (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Get Started
-              </>
-            ) : (
-              <>
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </>
-            )}
-          </Button>
         </div>
       </div>
     </div>
