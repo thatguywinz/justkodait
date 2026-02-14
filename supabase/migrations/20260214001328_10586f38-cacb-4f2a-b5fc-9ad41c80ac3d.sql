@@ -1,0 +1,87 @@
+
+-- Create function to find nearby businesses by lat/lng
+CREATE OR REPLACE FUNCTION public.find_nearby_businesses(
+  user_lat double precision,
+  user_lng double precision,
+  result_limit integer DEFAULT 20,
+  category_filter text DEFAULT NULL
+)
+RETURNS SETOF public.businesses
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT *
+  FROM public.businesses
+  WHERE latitude IS NOT NULL
+    AND longitude IS NOT NULL
+    AND (category_filter IS NULL OR category = category_filter::public.business_category)
+  ORDER BY power(latitude - user_lat, 2) + power(longitude - user_lng, 2)
+  LIMIT result_limit;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.find_nearby_businesses TO authenticated;
+GRANT EXECUTE ON FUNCTION public.find_nearby_businesses TO anon;
+
+-- Insert North York businesses
+INSERT INTO public.businesses (name, category, description, address, phone, website, image_url, average_rating, review_count, latitude, longitude)
+VALUES
+('Sushi Kaji', 'restaurant', 'Award-winning omakase sushi experience with fresh daily imports.', '4401 Yonge St, North York, ON M2N 5R5', '(416) 223-0533', 'https://sushikaji.com', 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800', 4.7, 312, 43.7620, -79.4115),
+('Paramount Fine Foods', 'restaurant', 'Authentic Middle Eastern cuisine featuring shawarma and grilled meats.', '5005 Yonge St, North York, ON M2N 7E9', '(416) 223-5555', 'https://paramountfinefoods.com', 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800', 4.3, 245, 43.7810, -79.4155),
+('Congee Queen', 'restaurant', 'Popular Hong Kong-style restaurant known for congee and dim sum.', '3600 Victoria Park Ave, North York, ON M2H 3B2', '(416) 499-8819', NULL, 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800', 4.1, 189, 43.7740, -79.3460),
+('The Keg Steakhouse', 'restaurant', 'Premium steakhouse offering aged beef, seafood, and wine.', '1977 Leslie St, North York, ON M3B 2M3', '(416) 443-0534', 'https://thekeg.com', 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800', 4.4, 378, 43.7500, -79.3683),
+('Noce Italian Restaurant', 'restaurant', 'Family-run Italian eatery with handmade pasta and wood-fired pizza.', '875 Don Mills Rd, North York, ON M3C 1V9', '(416) 441-0041', NULL, 'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?w=800', 4.5, 156, 43.7274, -79.3450),
+('Tabule Middle Eastern', 'restaurant', 'Modern Middle Eastern kitchen with mezze platters and kebabs.', '5975 Yonge St, North York, ON M2M 3V4', '(416) 221-8885', 'https://tabule.ca', 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=800', 4.2, 201, 43.7870, -79.4160),
+('Starbucks Reserve', 'cafe', 'Premium Starbucks with reserve coffees and pour-overs.', '4841 Yonge St, North York, ON M2N 5X2', '(416) 223-1616', 'https://starbucks.ca', 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800', 4.0, 167, 43.7615, -79.4105),
+('Second Cup Coffee', 'cafe', 'Canadian coffee chain with specialty lattes and fresh pastries.', '5000 Yonge St, North York, ON M2N 7E9', '(416) 221-0022', 'https://secondcup.com', 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800', 3.9, 134, 43.7800, -79.4145),
+('Balzacs Coffee Roasters', 'cafe', 'Artisanal coffee roaster with single-origin beans.', '2901 Bayview Ave, North York, ON M2K 1E6', '(416) 223-4567', 'https://balzacs.com', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800', 4.4, 198, 43.7695, -79.3885),
+('Aroma Espresso Bar', 'cafe', 'Israeli café with espresso drinks and Mediterranean-inspired bites.', '5418 Yonge St, North York, ON M2N 6X4', '(416) 223-9988', 'https://aromaespressobar.com', 'https://images.unsplash.com/photo-1453614512568-c4024d13c247?w=800', 4.2, 145, 43.7550, -79.4100),
+('Neo Coffee Bar', 'cafe', 'Trendy specialty coffee shop with latte art and cold brews.', '1100 Sheppard Ave W, North York, ON M3K 2C3', '(416) 637-2233', NULL, 'https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=800', 4.3, 89, 43.7615, -79.4780),
+('Dark Horse Espresso', 'cafe', 'Hip coffee bar with house-roasted beans and seasonal specials.', '4750 Yonge St, North York, ON M2N 5M6', '(416) 223-7744', NULL, 'https://images.unsplash.com/photo-1559496417-e7f25cb247f3?w=800', 4.5, 176, 43.7640, -79.4120),
+('Patisserie Royale', 'bakery', 'French-inspired patisserie with croissants and macarons.', '4773 Yonge St, North York, ON M2N 5M5', '(416) 222-4455', NULL, 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800', 4.6, 134, 43.7625, -79.4120),
+('Tous les Jours', 'bakery', 'Korean-French bakery with soft bread, pastries, and cakes.', '5095 Yonge St, North York, ON M2N 6Z4', '(416) 228-0080', 'https://touslesjours.com', 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?w=800', 4.3, 210, 43.7805, -79.4150),
+('Paris Baguette', 'bakery', 'Global bakery café with artisan breads and specialty cakes.', '3555 Don Mills Rd, North York, ON M2H 3N3', '(416) 499-1234', 'https://parisbaguette.com', 'https://images.unsplash.com/photo-1486427944544-d2c246c4df14?w=800', 4.2, 178, 43.7740, -79.3458),
+('Sweet Flour Bake Shop', 'bakery', 'Artisan bake shop with cupcakes, cookies, and custom cakes.', '5460 Yonge St, North York, ON M2N 6K7', '(416) 223-6677', NULL, 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800', 4.5, 97, 43.7555, -79.4105),
+('Bread and Butter Bakery', 'bakery', 'Neighbourhood bakery with sourdough loaves and Danish pastries.', '4800 Yonge St, North York, ON M2N 5N1', '(416) 221-8899', NULL, 'https://images.unsplash.com/photo-1555507036-ab1f4038024a?w=800', 4.4, 112, 43.7670, -79.4125),
+('Mashawi Bakery', 'bakery', 'Middle Eastern bakery with fresh pita, manakeesh, and baklava.', '1125 Finch Ave W, North York, ON M3J 2E8', '(416) 638-5522', NULL, 'https://images.unsplash.com/photo-1483695028939-5bb13f8648b0?w=800', 4.1, 156, 43.7654, -79.5050),
+('The Firkin on Yonge', 'bar', 'Classic British pub with craft beers and trivia nights.', '4861 Yonge St, North York, ON M2N 5X3', '(416) 223-3473', 'https://firkinpubs.com', 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 4.0, 223, 43.7618, -79.4108),
+('Jack Astors', 'bar', 'Lively bar and grill with signature cocktails and sports.', '4789 Yonge St, North York, ON M2N 0G3', '(416) 223-5225', 'https://jackastors.com', 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 3.9, 287, 43.7680, -79.4128),
+('Cactus Club Cafe', 'bar', 'Upscale casual bar with craft cocktails and weekend brunch.', '1910 Yonge St, North York, ON M4S 1Z4', '(416) 488-8181', 'https://cactusclubcafe.com', 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 4.3, 195, 43.7500, -79.3680),
+('Moxies Grill and Bar', 'bar', 'Contemporary bar with burgers, steak frites, and cocktails.', '3401 Dufferin St, North York, ON M6A 2T9', '(416) 789-9911', 'https://moxies.com', 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 4.1, 167, 43.7336, -79.4544),
+('The Pourhouse', 'bar', 'Craft beer bar with 30 taps and live music on weekends.', '5155 Yonge St, North York, ON M2N 6L4', '(416) 228-1199', NULL, 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 4.2, 134, 43.7806, -79.4151),
+('The Local Pub', 'bar', 'No-frills neighbourhood pub with cold pints and pool tables.', '2390 Sheppard Ave E, North York, ON M2J 5C4', '(416) 502-1234', NULL, 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800', 3.8, 98, 43.7738, -79.3455),
+('Fairview Mall', 'retail', 'Major shopping centre with 200+ stores including Hudson Bay and H&M.', '1800 Sheppard Ave E, North York, ON M2J 5A7', '(416) 491-0151', 'https://cfshops.com/fairview-mall', 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800', 4.1, 456, 43.7738, -79.3455),
+('Bayview Village Shopping Centre', 'retail', 'Upscale shopping with designer boutiques and Whole Foods.', '2901 Bayview Ave, North York, ON M2K 1E6', '(416) 226-0404', 'https://bayviewvillageshops.com', 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800', 4.4, 312, 43.7691, -79.3880),
+('Centerpoint Mall', 'retail', 'Community shopping mall at Yonge and Steeles.', '6464 Yonge St, North York, ON M2M 3V4', '(416) 223-8181', NULL, 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800', 3.7, 198, 43.7900, -79.4160),
+('Shops at Don Mills', 'retail', 'Open-air lifestyle centre with boutique shops and farmers market.', '1090 Don Mills Rd, North York, ON M3C 3R6', '(416) 250-5555', NULL, 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800', 4.3, 267, 43.7400, -79.3440),
+('Yorkgate Mall', 'retail', 'Neighbourhood shopping plaza with diverse retailers.', '1 Yorkgate Blvd, North York, ON M3N 3A1', '(416) 636-1127', NULL, 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800', 3.5, 145, 43.7654, -79.5100),
+('Yonge Sheppard Centre', 'retail', 'Mixed-use complex with retail shops and subway access.', '4841 Yonge St, North York, ON M2N 5X2', '(416) 223-0222', NULL, 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800', 4.0, 189, 43.7615, -79.4111),
+('Glow Beauty Bar', 'beauty', 'Full-service beauty bar with facials and lash extensions.', '4800 Yonge St, North York, ON M2N 5N1', '(416) 222-4569', NULL, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800', 4.5, 134, 43.7620, -79.4112),
+('Nail Bar and Spa Lounge', 'beauty', 'Luxury nail salon with gel manicures and spa pedicures.', '5050 Yonge St, North York, ON M2N 7E9', '(416) 228-1234', NULL, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800', 4.3, 198, 43.7808, -79.4152),
+('The Ten Spot Beauty Bar', 'beauty', 'Modern beauty bar with brow shaping, lash lifts, and skincare.', '2901 Bayview Ave Unit 14, North York, ON M2K 1E6', '(416) 223-8836', 'https://thetenspot.com', 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800', 4.4, 167, 43.7690, -79.3878),
+('Hammam Spa North York', 'beauty', 'Traditional hammam with body scrubs, steam rooms, and massage.', '5400 Yonge St, North York, ON M2N 5R5', '(416) 222-0088', NULL, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800', 4.6, 89, 43.7555, -79.4098),
+('Luxe Lash Studio', 'beauty', 'Specialist lash extension studio with volume and mega sets.', '4750 Yonge St, North York, ON M2N 5M6', '(416) 222-5274', NULL, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800', 4.7, 112, 43.7675, -79.4127),
+('K Beauty Lab', 'beauty', 'Korean skincare clinic with hydrafacials and LED therapy.', '3555 Don Mills Rd Unit 8, North York, ON M2H 3N3', '(416) 499-8822', NULL, 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800', 4.4, 78, 43.7740, -79.3457),
+('GoodLife Fitness', 'fitness', 'Full-service gym with cardio, weights, and group classes.', '4841 Yonge St, North York, ON M2N 5X2', '(416) 223-9898', 'https://goodlifefitness.com', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800', 4.1, 345, 43.7615, -79.4109),
+('Equinox North York', 'fitness', 'Premium fitness club with luxury amenities and spa.', '4789 Yonge St, North York, ON M2N 0G3', '(416) 223-7890', 'https://equinox.com', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800', 4.5, 178, 43.7678, -79.4130),
+('F45 Training North York', 'fitness', 'High-intensity functional group training in 45-minute circuits.', '5095 Yonge St Unit 3, North York, ON M2N 6Z4', '(416) 228-4545', 'https://f45training.com', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800', 4.4, 112, 43.7808, -79.4148),
+('CrossFit North York', 'fitness', 'CrossFit box with Olympic lifting and community WODs.', '1100 Sheppard Ave W Unit 5, North York, ON M3K 2C3', '(416) 637-3344', NULL, 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800', 4.3, 67, 43.7450, -79.4775),
+('LA Fitness', 'fitness', 'Large gym with pool, basketball courts, and group classes.', '1800 Sheppard Ave E Unit 300, North York, ON M2J 5A7', '(416) 491-5678', 'https://lafitness.com', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800', 3.9, 234, 43.7738, -79.3453),
+('Orangetheory Fitness', 'fitness', 'Heart-rate-based interval training with treadmill and rowing.', '5460 Yonge St Unit 2, North York, ON M2N 6K7', '(416) 223-9674', 'https://orangetheory.com', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800', 4.2, 156, 43.7555, -79.4102),
+('UPS Store North York', 'services', 'Shipping, printing, mailbox rentals, and packing services.', '4841 Yonge St Unit 211, North York, ON M2N 5X2', '(416) 223-0877', 'https://theupsstore.ca', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800', 3.8, 89, 43.7618, -79.4110),
+('North York Dry Cleaners', 'services', 'Professional dry cleaning, alterations, and same-day laundry.', '4750 Yonge St, North York, ON M2N 5M6', '(416) 222-3344', NULL, 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800', 4.0, 67, 43.7680, -79.4128),
+('Speedy Auto Service', 'services', 'Full-service auto repair with oil changes, brakes, and tires.', '1200 Sheppard Ave W, North York, ON M3K 2C4', '(416) 637-4455', 'https://speedy.com', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800', 4.1, 145, 43.7450, -79.4780),
+('Pet Valu North York', 'services', 'Pet supply store with premium food, toys, and grooming.', '2901 Bayview Ave Unit 22, North York, ON M2K 1E6', '(416) 226-7387', 'https://petvalu.com', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800', 4.3, 123, 43.7690, -79.3882),
+('North York Dental Clinic', 'services', 'Family dental practice with cleanings, whitening, and invisalign.', '5000 Yonge St Suite 401, North York, ON M2N 7E9', '(416) 221-3355', NULL, 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800', 4.4, 201, 43.7808, -79.4150),
+('Canada Post North York', 'services', 'Full-service postal outlet with parcel shipping and PO boxes.', '5460 Yonge St, North York, ON M2N 6K7', '(416) 223-0011', 'https://canadapost.ca', 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800', 3.5, 78, 43.7555, -79.4100),
+('Cineplex Empress Walk', 'entertainment', 'Modern cinema with IMAX, VIP seating, and ScreenX.', '5095 Yonge St, North York, ON M2N 6Z4', '(416) 223-4567', 'https://cineplex.com', 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800', 4.2, 567, 43.7676, -79.4129),
+('Dave and Busters', 'entertainment', 'Entertainment venue with arcade games, bowling, and VR.', '1800 Sheppard Ave E, North York, ON M2J 5A7', '(416) 491-2345', 'https://daveandbusters.com', 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800', 4.0, 345, 43.7738, -79.3455),
+('Escape Room North York', 'entertainment', 'Immersive escape rooms with mystery and sci-fi themes.', '4750 Yonge St Unit 5, North York, ON M2N 5M6', '(416) 222-8899', NULL, 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800', 4.5, 198, 43.7620, -79.4115),
+('North York Central Library', 'entertainment', 'Award-winning public library with art gallery and programs.', '5120 Yonge St, North York, ON M2N 5N9', '(416) 395-5623', 'https://torontopubliclibrary.ca', 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800', 4.6, 289, 43.7677, -79.4131),
+('Toronto Centre for the Arts', 'entertainment', 'Performing arts venue with Broadway shows and concerts.', '5040 Yonge St, North York, ON M2N 6R8', '(416) 733-9388', NULL, 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800', 4.3, 234, 43.7680, -79.4125),
+('Putting Edge Glow Golf', 'entertainment', 'Glow-in-the-dark indoor mini golf with 18 holes.', '3555 Don Mills Rd, North York, ON M2H 3N3', '(416) 492-7888', 'https://puttingedge.com', 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800', 4.1, 156, 43.7740, -79.3460),
+('T&T Supermarket', 'grocery', 'Asian supermarket with fresh seafood, produce, and hot food bar.', '4750 Yonge St, North York, ON M2N 5M6', '(416) 223-8882', 'https://tnt-supermarket.com', 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 4.3, 345, 43.7620, -79.4108),
+('Metro North York', 'grocery', 'Full-service grocery with deli, bakery, and pharmacy.', '5095 Yonge St, North York, ON M2N 6Z4', '(416) 228-0808', 'https://metro.ca', 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 3.9, 234, 43.7810, -79.4155),
+('Loblaws Bayview Village', 'grocery', 'Premium grocery with PC Chef meals and international foods.', '2901 Bayview Ave, North York, ON M2K 1E6', '(416) 226-0077', 'https://loblaws.ca', 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 4.2, 289, 43.7690, -79.3880),
+('No Frills', 'grocery', 'Budget-friendly grocery with everyday low prices.', '1200 Sheppard Ave W, North York, ON M3K 2C4', '(416) 637-1122', 'https://nofrills.ca', 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 3.7, 178, 43.7450, -79.4780),
+('H Mart', 'grocery', 'Korean grocery with fresh produce, kimchi bar, and food court.', '3555 Don Mills Rd, North York, ON M2H 3N3', '(416) 499-7777', 'https://hmart.com', 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 4.4, 267, 43.7740, -79.3455),
+('Farm Boy', 'grocery', 'Fresh market grocery with farm produce and prepared meals.', '5460 Yonge St, North York, ON M2N 6K7', '(416) 223-3276', 'https://farmboy.ca', 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 4.5, 198, 43.7555, -79.4100);
