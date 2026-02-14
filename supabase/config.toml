@@ -1,1 +1,4 @@
 project_id = "encqmnotrplnulxjqlna"
+
+[functions.discover-businesses]
+verify_jwt = false
