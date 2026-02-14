@@ -45,46 +45,34 @@ function validateInput(body: unknown): { ok: true; location: string; category: s
   return { ok: true, location: sanitizedLocation, category: (category as string) || null };
 }
 
-async function geocodeAddress(location: string, apiKey: string): Promise<{ latitude: number; longitude: number } | null> {
+async function geocodeAddress(location: string): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are a geocoding assistant. Given an address or location, return ONLY a JSON object with latitude and longitude. No other text. Example: {\"latitude\": 43.76, \"longitude\": -79.41}",
-          },
-          {
-            role: "user",
-            content: `Geocode this location in or near North York, Toronto, Canada: "${location}"`,
-          },
-        ],
-      }),
-    });
+    // Use OpenStreetMap Nominatim for free geocoding
+    const query = encodeURIComponent(location + ", North York, Toronto, ON, Canada");
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { "User-Agent": "KodaApp/1.0" } }
+    );
 
     if (!response.ok) {
-      console.error("Geocoding AI error:", response.status);
+      console.error("Nominatim error:", response.status);
       return null;
     }
 
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content;
-    if (!text) return null;
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-
-    const coords = JSON.parse(jsonMatch[0]);
-    if (typeof coords.latitude === "number" && typeof coords.longitude === "number") {
-      return { latitude: coords.latitude, longitude: coords.longitude };
+    const results = await response.json();
+    if (!results || results.length === 0) {
+      // Fallback: try without "North York" prefix
+      const fallbackQuery = encodeURIComponent(location + ", Toronto, ON, Canada");
+      const fallbackResp = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${fallbackQuery}&format=json&limit=1`,
+        { headers: { "User-Agent": "KodaApp/1.0" } }
+      );
+      const fallbackResults = await fallbackResp.json();
+      if (!fallbackResults || fallbackResults.length === 0) return null;
+      return { latitude: parseFloat(fallbackResults[0].lat), longitude: parseFloat(fallbackResults[0].lon) };
     }
-    return null;
+
+    return { latitude: parseFloat(results[0].lat), longitude: parseFloat(results[0].lon) };
   } catch (err) {
     console.error("Geocoding error:", err);
     return null;
@@ -135,14 +123,9 @@ serve(async (req) => {
     const { location, category } = validation;
 
     // --- Geocode the address ---
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     console.log("Geocoding location:", location, "for user:", user.id);
 
-    const coords = await geocodeAddress(location, LOVABLE_API_KEY);
+    const coords = await geocodeAddress(location);
     if (!coords) {
       return new Response(
         JSON.stringify({ error: "Could not find that location. Please try a more specific address in North York." }),
