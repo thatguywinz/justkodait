@@ -249,7 +249,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_nearby_businesses: {
+        Args: {
+          category_filter?: string
+          result_limit?: number
+          user_lat: number
+          user_lng: number
+        }
+        Returns: {
+          address: string
+          average_rating: number | null
+          category: Database["public"]["Enums"]["business_category"]
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_verified: boolean | null
+          latitude: number | null
+          longitude: number | null
+          name: string
+          phone: string | null
+          review_count: number | null
+          updated_at: string
+          website: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "businesses"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       business_category:
