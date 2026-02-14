@@ -9,6 +9,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { DiscoveryProvider } from "@/contexts/DiscoveryContext";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -41,28 +42,30 @@ function OnboardingGuard({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <DiscoveryProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <OnboardingGuard>
-              <Routes>
-                <Route path="/onboarding" element={<OnboardingPage />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/" element={<HomePage />} />
-                <Route path="/discover" element={<DiscoverPage />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-              <BottomNav />
-            </OnboardingGuard>
-          </BrowserRouter>
-        </TooltipProvider>
-      </DiscoveryProvider>
-    </AuthProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <AuthProvider>
+        <DiscoveryProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <OnboardingGuard>
+                <Routes>
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/discover" element={<DiscoverPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <BottomNav />
+              </OnboardingGuard>
+            </BrowserRouter>
+          </TooltipProvider>
+        </DiscoveryProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
