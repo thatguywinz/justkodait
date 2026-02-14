@@ -35,17 +35,17 @@ const slides = [
     color: 'text-chart-3',
   },
   {
-    icon: LogIn,
-    title: 'Create an Account',
-    description: 'Sign up or sign in to unlock the full experience — save favorites, leave reviews, track your discoveries, and get personalized recommendations.',
-    color: 'text-primary',
-    cta: true,
-  },
-  {
     icon: User,
     title: 'Your Profile',
     description: 'Save your favorites, leave reviews, and keep track of all the amazing places you\'ve discovered.',
     color: 'text-chart-4',
+  },
+  {
+    icon: LogIn,
+    title: 'Ready to Explore?',
+    description: 'Sign up or sign in to unlock the full experience — save favorites, leave reviews, and discover local gems with AI.',
+    color: 'text-primary',
+    cta: true,
   },
 ];
 
@@ -94,11 +94,14 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-between bg-background p-6">
-      {/* Skip button */}
+      {/* Skip button - hidden on CTA slide */}
       <div className="flex w-full justify-end">
-        <Button variant="ghost" size="sm" onClick={handleSkip}>
-          Skip
-        </Button>
+        {!slide.cta && (
+          <Button variant="ghost" size="sm" onClick={handleSkip}>
+            Skip
+          </Button>
+        )}
+        {slide.cta && <div className="h-9" />}
       </div>
 
       {/* Content with side arrows */}
@@ -125,28 +128,40 @@ export default function OnboardingPage() {
           <h1 className="text-2xl font-bold text-foreground">{slide.title}</h1>
           <p className="mt-4 max-w-sm text-muted-foreground">{slide.description}</p>
           {slide.cta && (
-            <Button
-              className="mt-6"
-              size="lg"
-              onClick={() => {
-                localStorage.setItem('koda_onboarded', 'true');
-                navigate('/auth');
-              }}
-            >
-              <LogIn className="mr-2 h-4 w-4" />
-              Sign In / Sign Up
-            </Button>
+            <>
+              <Button
+                className="mt-6"
+                size="lg"
+                onClick={() => {
+                  localStorage.setItem('koda_onboarded', 'true');
+                  navigate('/auth');
+                }}
+              >
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In / Sign Up
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-3 text-muted-foreground"
+                onClick={handleSkip}
+              >
+                Continue as guest
+              </Button>
+            </>
           )}
         </div>
 
-        {/* Right arrow */}
-        <button
-          onClick={handleNext}
-          className="absolute right-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={isLast ? 'Get started' : 'Next slide'}
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        {/* Right arrow - hidden on last CTA slide */}
+        {!isLast && (
+          <button
+            onClick={handleNext}
+            className="absolute right-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Dots */}
