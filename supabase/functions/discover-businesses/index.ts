@@ -87,7 +87,7 @@ serve(async (req) => {
   try {
     // --- Authentication ---
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Authentication required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -102,13 +102,15 @@ serve(async (req) => {
     });
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !user) {
+    const { data: claimsData, error: authError } = await supabaseClient.auth.getClaims(token);
+    if (authError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ error: "Invalid authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = claimsData.claims.sub;
 
     // --- Input Validation ---
     const body = await req.json();
@@ -123,7 +125,7 @@ serve(async (req) => {
     const { location, category } = validation;
 
     // --- Geocode the address ---
-    console.log("Geocoding location:", location, "for user:", user.id);
+    console.log("Geocoding location:", location, "for user:", userId);
 
     const coords = await geocodeAddress(location);
     if (!coords) {
