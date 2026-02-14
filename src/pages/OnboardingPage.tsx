@@ -5,7 +5,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Home, Compass, MapPin, User, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
+import { KeyRound, Home, Compass, MapPin, User, ChevronRight, ChevronLeft, Sparkles, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +33,13 @@ const slides = [
     title: 'See the Map',
     description: 'View all businesses on an interactive map. Find what\'s closest to you and get directions instantly.',
     color: 'text-chart-3',
+  },
+  {
+    icon: LogIn,
+    title: 'Create an Account',
+    description: 'Sign up or sign in to unlock the full experience — save favorites, leave reviews, track your discoveries, and get personalized recommendations.',
+    color: 'text-primary',
+    cta: true,
   },
   {
     icon: User,
@@ -81,7 +88,7 @@ export default function OnboardingPage() {
     navigate('/');
   };
 
-  const slide = slides[currentSlide];
+  const slide = slides[currentSlide] as (typeof slides)[number] & { cta?: boolean };
   const Icon = slide.icon;
   const isLast = currentSlide === slides.length - 1;
 
@@ -117,6 +124,19 @@ export default function OnboardingPage() {
 
           <h1 className="text-2xl font-bold text-foreground">{slide.title}</h1>
           <p className="mt-4 max-w-sm text-muted-foreground">{slide.description}</p>
+          {slide.cta && (
+            <Button
+              className="mt-6"
+              size="lg"
+              onClick={() => {
+                localStorage.setItem('koda_onboarded', 'true');
+                navigate('/auth');
+              }}
+            >
+              <LogIn className="mr-2 h-4 w-4" />
+              Sign In / Sign Up
+            </Button>
+          )}
         </div>
 
         {/* Right arrow */}
