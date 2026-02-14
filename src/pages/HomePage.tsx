@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { KeyRound, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { CategoryFilter } from '@/components/business/CategoryFilter';
@@ -11,6 +12,7 @@ import { BusinessCard } from '@/components/business/BusinessCard';
 import { BusinessDetail } from '@/components/business/BusinessDetail';
 import { useDiscovery } from '@/contexts/DiscoveryContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useAuth } from '@/hooks/useAuth';
 import { Business, BusinessCategory } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
@@ -29,6 +31,7 @@ import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function HomePage() {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<BusinessCategory | null>(null);
   const [sortBy, setSortBy] = useState<'rating' | 'reviews' | 'name'>('rating');
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
@@ -39,6 +42,7 @@ export default function HomePage() {
     searchedLocation,
     discoverBusinesses 
   } = useDiscovery();
+  const { session } = useAuth();
 
   // Keep location input synced with searched location
   const [locationInput, setLocationInput] = useState(searchedLocation || '');
@@ -83,6 +87,11 @@ export default function HomePage() {
     e.preventDefault();
     if (!locationInput.trim()) {
       toast.error('Please enter an address or postal code');
+      return;
+    }
+    if (!session) {
+      toast.error('Please sign in to discover businesses');
+      navigate('/auth');
       return;
     }
     toast.info(`Discovering gems near ${locationInput}...`);
