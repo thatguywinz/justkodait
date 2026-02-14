@@ -17,17 +17,18 @@ export function useReviews(businessId?: string) {
 
   const fetchReviewsForBusiness = useCallback(async (bizId: string) => {
     setLoading(true);
+    // Use the public view that excludes user_id for privacy
     const { data, error } = await supabase
-      .from('reviews')
+      .from('reviews_public' as any)
       .select('*')
       .eq('business_id', bizId)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setReviews(data as Review[]);
+      setReviews(data as unknown as Review[]);
     }
     setLoading(false);
-    return (data as Review[]) || [];
+    return (data as unknown as Review[]) || [];
   }, []);
 
   const fetchUserReviews = useCallback(async () => {

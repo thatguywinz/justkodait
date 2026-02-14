@@ -246,7 +246,41 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      reviews_public: {
+        Row: {
+          business_id: string | null
+          comment: string | null
+          created_at: string | null
+          id: string | null
+          rating: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string | null
+          rating?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          comment?: string | null
+          created_at?: string | null
+          id?: string | null
+          rating?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       find_nearby_businesses: {

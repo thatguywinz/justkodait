@@ -34,7 +34,7 @@ export function BusinessDetail({
   onFavoriteToggle,
 }: BusinessDetailProps) {
   const { user } = useAuth();
-  const { reviews, fetchReviewsForBusiness, addReview } = useReviews();
+  const { reviews, fetchReviewsForBusiness, addReview, userReviews, fetchUserReviews } = useReviews();
   const [showReviewForm, setShowReviewForm] = useState(false);
 
   useEffect(() => {
@@ -42,6 +42,12 @@ export function BusinessDetail({
       fetchReviewsForBusiness(business.id);
     }
   }, [business, isOpen, fetchReviewsForBusiness]);
+
+  useEffect(() => {
+    if (user && business && isOpen) {
+      fetchUserReviews();
+    }
+  }, [user, business, isOpen, fetchUserReviews]);
 
   if (!business) return null;
 
@@ -53,7 +59,7 @@ export function BusinessDetail({
     }
   };
 
-  const userHasReviewed = reviews.some(r => r.user_id === user?.id);
+  const userHasReviewed = userReviews.some(r => r.business_id === business.id);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
