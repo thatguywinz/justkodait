@@ -77,17 +77,41 @@ export default function OnboardingPage() {
         </Button>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <div className={cn(
-          'mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 transition-all duration-500',
-          slide.color
-        )}>
-          <Icon className="h-12 w-12" />
+      {/* Content with side arrows */}
+      <div className="relative flex w-full flex-1 items-center justify-center">
+        {/* Left arrow */}
+        {currentSlide > 0 && (
+          <button
+            onClick={handlePrev}
+            className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+
+        <div className="flex flex-col items-center text-center px-12">
+          <div className={cn(
+            'mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 transition-all duration-500',
+            slide.color
+          )}>
+            <Icon className="h-12 w-12" />
+          </div>
+
+          <h1 className="text-2xl font-bold text-foreground">{slide.title}</h1>
+          <p className="mt-4 max-w-sm text-muted-foreground">{slide.description}</p>
         </div>
 
-        <h1 className="text-2xl font-bold text-foreground">{slide.title}</h1>
-        <p className="mt-4 max-w-sm text-muted-foreground">{slide.description}</p>
+        {/* Right arrow */}
+        {!isLast && (
+          <button
+            onClick={handleNext}
+            className="absolute right-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
