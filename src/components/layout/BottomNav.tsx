@@ -3,7 +3,7 @@
  * Mobile-first navigation bar with 3 main tabs
  */
 
-import { Home, Compass, User } from 'lucide-react';
+import { Compass, ListChecks, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -14,8 +14,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/', label: 'Discover', icon: Home },
-  { path: '/discover', label: 'Choose', icon: Compass },
+  { path: '/', label: 'Discover', icon: Compass },
+  { path: '/discover', label: 'Choose', icon: ListChecks },
   { path: '/profile', label: 'Profile', icon: User },
 ];
 
