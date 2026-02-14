@@ -19,6 +19,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import AuthPage from "@/pages/AuthPage";
 import OnboardingPage from "@/pages/OnboardingPage";
 import NotFound from "@/pages/NotFound";
+import InstallPage from "@/pages/InstallPage";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => (
                   <Route path="/" element={<HomePage />} />
                   <Route path="/discover" element={<DiscoverPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/install" element={<InstallPage />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
