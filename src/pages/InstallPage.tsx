@@ -71,6 +71,12 @@ export default function InstallPage() {
               You can find Koda on your home screen. Open it anytime for a native app experience.
             </p>
             <Button onClick={() => navigate('/')}>Go to Home</Button>
+            <Button variant="ghost" size="sm" onClick={() => {
+              localStorage.removeItem('koda-installed');
+              navigate('/');
+            }}>
+              Not installed? Go back
+            </Button>
           </CardContent>
         </Card>
       ) : deferredPrompt ? (
@@ -168,6 +174,17 @@ export default function InstallPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+      {/* Already Installed shortcut */}
+      {!isInstalled && (
+        <div className="text-center pt-2">
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => {
+            localStorage.setItem('koda-installed', 'true');
+            navigate('/');
+          }}>
+            Already installed? Dismiss install button
+          </Button>
+        </div>
       )}
     </PageContainer>
   );

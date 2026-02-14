@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, MapPin, Sparkles, Loader2 } from 'lucide-react';
+import { KeyRound, MapPin, Sparkles, Loader2, Download } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { CategoryFilter } from '@/components/business/CategoryFilter';
 import { BusinessCard } from '@/components/business/BusinessCard';
@@ -108,7 +108,15 @@ export default function HomePage() {
           </h1>
           <p className="text-sm text-muted-foreground">The key to your neighborhood</p>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          {!localStorage.getItem('koda-installed') && (
+            <Button variant="outline" size="sm" onClick={() => navigate('/install')}>
+              <Download className="h-4 w-4 mr-1" />
+              Install
+            </Button>
+          )}
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* Location Input */}
