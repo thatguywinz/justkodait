@@ -35,9 +35,6 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<BusinessCategory | null>(null);
   const [sortBy, setSortBy] = useState<'rating' | 'reviews' | 'name'>('rating');
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
-  const [guestSearchCount, setGuestSearchCount] = useState(() => {
-    return parseInt(localStorage.getItem('koda_guest_searches') || '0', 10);
-  });
 
   const { 
     businesses, 
@@ -92,8 +89,8 @@ export default function HomePage() {
       toast.error('Please enter an address or postal code');
       return;
     }
-    if (!session && guestSearchCount >= 3) {
-      toast.error('Sign in to continue discovering businesses');
+    if (!session) {
+      toast.error('Please sign in to discover businesses');
       navigate('/auth');
       return;
     }
@@ -102,14 +99,6 @@ export default function HomePage() {
     if (!result.ok) {
       toast.error(result.message || 'Failed to discover businesses. Please try again.');
       return;
-    }
-    if (!session) {
-      const newCount = guestSearchCount + 1;
-      setGuestSearchCount(newCount);
-      localStorage.setItem('koda_guest_searches', String(newCount));
-      if (newCount >= 3) {
-        toast.info('Sign in to keep discovering local gems!', { duration: 5000 });
-      }
     }
     toast.success(`Found local gems near ${locationInput}!`);
   };

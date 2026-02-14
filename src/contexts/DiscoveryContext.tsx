@@ -30,6 +30,14 @@ export function DiscoveryProvider({ children }: { children: ReactNode }) {
     setSearchedLocation(location);
 
     try {
+      // Check if user is authenticated before calling the edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const message = 'Please sign in to discover businesses';
+        setError(new Error(message));
+        setLoading(false);
+        return { ok: false, message };
+      }
 
       const { data, error: fnError } = await supabase.functions.invoke('discover-businesses', {
         body: { location, category },
