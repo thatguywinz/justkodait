@@ -34,16 +34,29 @@ export function DiscoveryProvider({ children }: { children: ReactNode }) {
         body: { location, category },
       });
 
-      // Check data.error first for our custom error messages
-      if (data?.error) {
-        const message = typeof data.error === 'string' ? data.error : 'Failed to discover businesses';
+      if (fnError) {
+        // For non-2xx responses, try to extract the actual error message from the response
+        let message = 'Failed to discover businesses';
+        try {
+          if (fnError.context && typeof fnError.context.json === 'function') {
+            const errorBody = await fnError.context.json();
+            if (errorBody?.error) {
+              message = errorBody.error;
+            }
+          }
+        } catch {
+          // If we can't parse the error body, check if data has the error
+          if (data?.error) {
+            message = typeof data.error === 'string' ? data.error : message;
+          }
+        }
         setError(new Error(message));
-        // Don't clear businesses on error - keep previous results
         return { ok: false, message };
       }
 
-      if (fnError) {
-        const message = fnError.message || 'Failed to discover businesses';
+      // Check data.error for edge cases
+      if (data?.error) {
+        const message = typeof data.error === 'string' ? data.error : 'Failed to discover businesses';
         setError(new Error(message));
         return { ok: false, message };
       }
