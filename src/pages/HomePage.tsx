@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, MapPin, Sparkles, Loader2, Download } from 'lucide-react';
+import { KeyRound, MapPin, Sparkles, Loader2, Download, LocateFixed } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { CategoryFilter } from '@/components/business/CategoryFilter';
 import { BusinessCard } from '@/components/business/BusinessCard';
@@ -82,6 +82,47 @@ export default function HomePage() {
   // Create a deals map (empty for AI businesses, but needed for BusinessCard)
   const deals: Record<string, never[]> = {};
 
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    toast.info('Getting your location...');
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        // Reverse geocode to get a human-readable address
+        try {
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { 'User-Agent': 'KodaApp/1.0' } }
+          );
+          const data = await resp.json();
+          const address = data.display_name?.split(',').slice(0, 3).join(',').trim() || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          setLocationInput(address);
+          toast.info(`Discovering gems near your location...`);
+          const result = await discoverBusinesses(address);
+          if (!result.ok) {
+            toast.error(result.message || 'Failed to discover businesses.');
+            return;
+          }
+          toast.success('Found local gems near you!');
+        } catch {
+          const fallback = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          setLocationInput(fallback);
+          const result = await discoverBusinesses(fallback);
+          if (!result.ok) {
+            toast.error(result.message || 'Failed to discover businesses.');
+          }
+        }
+      },
+      (error) => {
+        toast.error(error.code === 1 ? 'Location access denied. Please enable location permissions.' : 'Could not get your location. Please enter it manually.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!locationInput.trim()) {
@@ -137,6 +178,16 @@ export default function HomePage() {
               disabled={loading}
             />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            disabled={loading}
+            onClick={handleUseCurrentLocation}
+            title="Use my current location"
+          >
+            <LocateFixed className="h-4 w-4" />
+          </Button>
           <Button type="submit" disabled={loading || !locationInput.trim()}>
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
