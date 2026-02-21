@@ -147,20 +147,6 @@ src/
 
 ---
 
-## 🏆 FBL Canada Competition
-
-This project was built for the **FBL Canada Byte-Sized Business Boost** competition.
-
-### Competition Requirements Met:
-- ✅ Sorting businesses by category (e.g., food, retail, services)
-- ✅ Allowing users to leave reviews or ratings
-- ✅ Sorting businesses by reviews or ratings
-- ✅ Saving or bookmarking favorite businesses
-- ✅ Displaying special deals or coupons
-- ✅ Implementing a verification step to prevent bot activity
-
----
-
 ## 📄 License
 
 This project uses various open-source libraries and frameworks. See individual package licenses for details.
