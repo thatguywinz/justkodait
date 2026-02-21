@@ -72,18 +72,12 @@ interface AIBusiness {
   website: string | null;
 }
 
-async function discoverWithGemini(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
-  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-  if (!GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY not configured, skipping AI discovery");
-    return [];
-  }
-
+function buildPrompt(location: string, category: string | null, coords: { latitude: number; longitude: number }): string {
   const categoryPrompt = category
     ? `Focus specifically on "${category}" businesses.`
     : `Include a mix of categories: ${VALID_CATEGORIES.join(", ")}.`;
 
-  const prompt = `You are a local business directory expert for Toronto, Canada.
+  return `You are a local business directory expert for Toronto, Canada.
 
 Find 10 REAL businesses near "${location}" (coordinates: ${coords.latitude}, ${coords.longitude}).
 ${categoryPrompt}
@@ -106,6 +100,29 @@ Respond with ONLY valid JSON in this exact format, no other text:
     }
   ]
 }`;
+}
+
+function parseAIResponse(text: string): AIBusiness[] {
+  try {
+    const parsed = JSON.parse(text);
+    return (parsed.businesses || []).map((b: AIBusiness) => ({
+      ...b,
+      category: VALID_CATEGORIES.includes(b.category) ? b.category : "services",
+    }));
+  } catch (err) {
+    console.error("Failed to parse AI response:", err);
+    return [];
+  }
+}
+
+async function discoverWithGemini(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) {
+    console.log("GEMINI_API_KEY not configured, skipping Gemini discovery");
+    return [];
+  }
+
+  const prompt = buildPrompt(location, category, coords);
 
   try {
     const response = await fetch(
@@ -133,15 +150,82 @@ Respond with ONLY valid JSON in this exact format, no other text:
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) return [];
 
-    const parsed = JSON.parse(text);
-    return (parsed.businesses || []).map((b: AIBusiness) => ({
-      ...b,
-      category: VALID_CATEGORIES.includes(b.category) ? b.category : "services",
-    }));
+    return parseAIResponse(text);
   } catch (err) {
     console.error("Gemini discovery error:", err);
     return [];
   }
+}
+
+async function discoverWithLovableAI(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.log("LOVABLE_API_KEY not configured, skipping Lovable AI discovery");
+    return [];
+  }
+
+  const prompt = buildPrompt(location, category, coords);
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "You are a local business directory expert. Return only valid JSON." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Lovable AI error:", response.status, errText);
+      return [];
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) return [];
+
+    // Try to extract JSON from the response (may be wrapped in markdown)
+    let jsonStr = text;
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    }
+
+    return parseAIResponse(jsonStr);
+  } catch (err) {
+    console.error("Lovable AI discovery error:", err);
+    return [];
+  }
+}
+
+async function discoverWithAI(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  // Try Gemini first
+  console.log("Trying Gemini API for AI discovery...");
+  const geminiResults = await discoverWithGemini(location, category, coords);
+  if (geminiResults.length > 0) {
+    console.log(`Gemini returned ${geminiResults.length} businesses`);
+    return geminiResults;
+  }
+
+  // Fallback to Lovable AI
+  console.log("Gemini failed or returned no results, falling back to Lovable AI...");
+  const lovableResults = await discoverWithLovableAI(location, category, coords);
+  if (lovableResults.length > 0) {
+    console.log(`Lovable AI returned ${lovableResults.length} businesses`);
+    return lovableResults;
+  }
+
+  console.log("Both AI providers failed or returned no results, will use DB results only");
+  return [];
 }
 
 serve(async (req) => {
@@ -193,7 +277,7 @@ serve(async (req) => {
         result_limit: 20,
         category_filter: category,
       }),
-      discoverWithGemini(location, category, coords),
+      discoverWithAI(location, category, coords),
     ]);
 
     if (dbResult.error) {
@@ -231,7 +315,6 @@ serve(async (req) => {
 
       if (insertError) {
         console.error("Error saving AI businesses:", insertError);
-        // Still return them as transient results
         savedBusinesses = rows.map((r) => ({
           ...r,
           id: crypto.randomUUID(),
@@ -247,6 +330,7 @@ serve(async (req) => {
 
     const allBusinesses = [...dbBusinesses, ...savedBusinesses];
 
+    // Always return results — even if AI failed, DB results are returned
     return new Response(JSON.stringify({ businesses: allBusinesses }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
