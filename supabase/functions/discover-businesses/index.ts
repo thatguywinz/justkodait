@@ -7,6 +7,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const VALID_CATEGORIES = [
+  "restaurant", "cafe", "bakery", "bar", "retail",
+  "beauty", "fitness", "services", "entertainment", "grocery",
+];
+
 function validateInput(body: unknown): { ok: true; location: string; category: string | null } | { ok: false; error: string } {
   if (typeof body !== "object" || body === null) {
     return { ok: false, error: "Invalid request body" };
@@ -31,11 +36,6 @@ function validateInput(body: unknown): { ok: true; location: string; category: s
     return { ok: false, error: "Location contains only invalid characters" };
   }
 
-  const VALID_CATEGORIES = [
-    "restaurant", "cafe", "bakery", "bar", "retail",
-    "beauty", "fitness", "services", "entertainment", "grocery",
-  ];
-
   if (category !== undefined && category !== null) {
     if (typeof category !== "string" || !VALID_CATEGORIES.includes(category)) {
       return { ok: false, error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}` };
@@ -53,10 +53,7 @@ async function geocodeAddress(location: string): Promise<{ latitude: number; lon
       { headers: { "User-Agent": "KodaApp/1.0" } }
     );
 
-    if (!response.ok) {
-      console.error("Nominatim error:", response.status);
-      return null;
-    }
+    if (!response.ok) return null;
 
     const results = await response.json();
     if (!results || results.length === 0) {
@@ -77,13 +74,111 @@ async function geocodeAddress(location: string): Promise<{ latitude: number; lon
   }
 }
 
+interface AIBusiness {
+  name: string;
+  category: string;
+  address: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  phone: string | null;
+  website: string | null;
+}
+
+async function discoverWithAI(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.error("LOVABLE_API_KEY not configured, skipping AI discovery");
+    return [];
+  }
+
+  const categoryPrompt = category ? `Focus specifically on the "${category}" category.` : `Include a mix of categories: ${VALID_CATEGORIES.join(", ")}.`;
+
+  const prompt = `You are a local business directory expert for North York and Toronto, Canada.
+
+Find 10 REAL businesses near "${location}" (coordinates: ${coords.latitude}, ${coords.longitude}).
+${categoryPrompt}
+
+IMPORTANT: Only include REAL businesses that actually exist. Do NOT make up fake businesses.
+For each business provide accurate details including real addresses, real phone numbers, and real websites if available.`;
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are a helpful local business directory assistant." },
+          { role: "user", content: prompt },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "return_businesses",
+              description: "Return a list of real local businesses near the given location.",
+              parameters: {
+                type: "object",
+                properties: {
+                  businesses: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string", description: "Business name" },
+                        category: { type: "string", enum: VALID_CATEGORIES, description: "Business category" },
+                        address: { type: "string", description: "Full street address" },
+                        description: { type: "string", description: "Brief description (1-2 sentences)" },
+                        latitude: { type: "number", description: "Latitude coordinate" },
+                        longitude: { type: "number", description: "Longitude coordinate" },
+                        phone: { type: "string", description: "Phone number or null" },
+                        website: { type: "string", description: "Website URL or null" },
+                      },
+                      required: ["name", "category", "address", "description", "latitude", "longitude"],
+                      additionalProperties: false,
+                    },
+                  },
+                },
+                required: ["businesses"],
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "return_businesses" } },
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI gateway error:", response.status, await response.text());
+      return [];
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall?.function?.arguments) return [];
+
+    const parsed = JSON.parse(toolCall.function.arguments);
+    return (parsed.businesses || []).map((b: AIBusiness) => ({
+      ...b,
+      category: VALID_CATEGORIES.includes(b.category) ? b.category : "services",
+    }));
+  } catch (err) {
+    console.error("AI discovery error:", err);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // --- Authentication (optional - guests can browse) ---
     const authHeader = req.headers.get("Authorization");
     let userId = "anonymous";
 
@@ -99,7 +194,6 @@ serve(async (req) => {
       }
     }
 
-    // --- Input Validation ---
     const body = await req.json();
     const validation = validateInput(body);
     if (!validation.ok) {
@@ -111,41 +205,66 @@ serve(async (req) => {
 
     const { location, category } = validation;
 
-    // --- Geocode the address ---
     console.log("Geocoding location:", location, "for user:", userId);
-
     const coords = await geocodeAddress(location);
     if (!coords) {
       return new Response(
-        JSON.stringify({ error: "Could not find that location. Please try a more specific address in North York." }),
+        JSON.stringify({ error: "Could not find that location. Please try a more specific address." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log("Geocoded to:", coords.latitude, coords.longitude);
 
-    // --- Query nearby businesses from database ---
+    // Run DB query and AI discovery in parallel
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceClient = createClient(
       supabaseUrl,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
-    const { data: businesses, error: dbError } = await serviceClient.rpc("find_nearby_businesses", {
-      user_lat: coords.latitude,
-      user_lng: coords.longitude,
-      result_limit: 20,
-      category_filter: category,
-    });
+    const [dbResult, aiBusinesses] = await Promise.all([
+      serviceClient.rpc("find_nearby_businesses", {
+        user_lat: coords.latitude,
+        user_lng: coords.longitude,
+        result_limit: 20,
+        category_filter: category,
+      }),
+      discoverWithAI(location, category, coords),
+    ]);
 
-    if (dbError) {
-      console.error("Database query error:", dbError);
-      throw new Error("Failed to query nearby businesses");
+    if (dbResult.error) {
+      console.error("Database query error:", dbResult.error);
     }
 
-    console.log(`Found ${businesses?.length || 0} nearby businesses`);
+    const dbBusinesses = dbResult.data || [];
+    console.log(`Found ${dbBusinesses.length} DB businesses, ${aiBusinesses.length} AI businesses`);
 
-    return new Response(JSON.stringify({ businesses: businesses || [] }), {
+    // Merge: DB businesses first, then AI ones that aren't duplicates
+    const dbNames = new Set(dbBusinesses.map((b: { name: string }) => b.name.toLowerCase()));
+    const uniqueAI = aiBusinesses
+      .filter((ai) => !dbNames.has(ai.name.toLowerCase()))
+      .map((ai) => ({
+        id: crypto.randomUUID(),
+        name: ai.name,
+        category: ai.category,
+        address: ai.address,
+        description: ai.description,
+        latitude: ai.latitude,
+        longitude: ai.longitude,
+        phone: ai.phone || null,
+        website: ai.website || null,
+        image_url: null,
+        average_rating: 0,
+        review_count: 0,
+        is_verified: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+
+    const allBusinesses = [...dbBusinesses, ...uniqueAI];
+
+    return new Response(JSON.stringify({ businesses: allBusinesses }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
