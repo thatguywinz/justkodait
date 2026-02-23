@@ -61,6 +61,23 @@ async function geocodeAddress(location: string): Promise<{ latitude: number; lon
   }
 }
 
+const CATEGORY_IMAGES: Record<string, string> = {
+  restaurant: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&h=400&fit=crop",
+  cafe: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&h=400&fit=crop",
+  bakery: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&h=400&fit=crop",
+  bar: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&h=400&fit=crop",
+  retail: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop",
+  beauty: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&h=400&fit=crop",
+  fitness: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&h=400&fit=crop",
+  services: "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&h=400&fit=crop",
+  entertainment: "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?w=600&h=400&fit=crop",
+  grocery: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&h=400&fit=crop",
+};
+
+function getCategoryImage(category: string): string {
+  return CATEGORY_IMAGES[category] || CATEGORY_IMAGES["services"];
+}
+
 interface AIBusiness {
   name: string;
   category: string;
