@@ -100,7 +100,8 @@ Find 10 REAL businesses near "${location}" (coordinates: ${coords.latitude}, ${c
 ${categoryPrompt}
 
 IMPORTANT: Only include REAL businesses that actually exist in Toronto/North York. Do NOT invent fake businesses.
-Provide accurate addresses, phone numbers, and websites where available.
+Provide FULL street addresses with street number, street name, city, province, and postal code (e.g. "1234 Yonge St, Toronto, ON M4T 1W1").
+Provide accurate phone numbers and websites where available.
 
 Respond with ONLY valid JSON in this exact format, no other text:
 {
@@ -320,6 +321,7 @@ serve(async (req) => {
         longitude: ai.longitude,
         phone: ai.phone || null,
         website: ai.website || null,
+        image_url: getCategoryImage(ai.category),
         is_verified: false,
         average_rating: 0,
         review_count: 0,
