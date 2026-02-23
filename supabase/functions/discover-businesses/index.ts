@@ -12,19 +12,6 @@ const VALID_CATEGORIES = [
   "beauty", "fitness", "services", "entertainment", "grocery",
 ];
 
-// Nominatim POI types mapped to our categories
-const NOMINATIM_SEARCHES: { query: string; category: string }[] = [
-  { query: "restaurant", category: "restaurant" },
-  { query: "cafe coffee", category: "cafe" },
-  { query: "bakery", category: "bakery" },
-  { query: "bar pub", category: "bar" },
-  { query: "shop store", category: "retail" },
-  { query: "salon beauty hair", category: "beauty" },
-  { query: "gym fitness", category: "fitness" },
-  { query: "supermarket grocery", category: "grocery" },
-  { query: "cinema theatre entertainment", category: "entertainment" },
-];
-
 function validateInput(body: unknown): { ok: true; location: string; category: string | null } | { ok: false; error: string } {
   if (typeof body !== "object" || body === null) {
     return { ok: false, error: "Invalid request body" };
@@ -50,14 +37,23 @@ function validateInput(body: unknown): { ok: true; location: string; category: s
 
 async function geocodeAddress(location: string): Promise<{ latitude: number; longitude: number } | null> {
   try {
-    const query = encodeURIComponent(location + ", Toronto, ON, Canada");
+    const query = encodeURIComponent(location + ", North York, Toronto, ON, Canada");
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
       { headers: { "User-Agent": "KodaApp/1.0" } }
     );
     if (!response.ok) return null;
     const results = await response.json();
-    if (!results || results.length === 0) return null;
+    if (!results || results.length === 0) {
+      const fallbackQuery = encodeURIComponent(location + ", Toronto, ON, Canada");
+      const fallbackResp = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${fallbackQuery}&format=json&limit=1`,
+        { headers: { "User-Agent": "KodaApp/1.0" } }
+      );
+      const fallbackResults = await fallbackResp.json();
+      if (!fallbackResults || fallbackResults.length === 0) return null;
+      return { latitude: parseFloat(fallbackResults[0].lat), longitude: parseFloat(fallbackResults[0].lon) };
+    }
     return { latitude: parseFloat(results[0].lat), longitude: parseFloat(results[0].lon) };
   } catch (err) {
     console.error("Geocoding error:", err);
@@ -65,7 +61,7 @@ async function geocodeAddress(location: string): Promise<{ latitude: number; lon
   }
 }
 
-interface DiscoveredBusiness {
+interface AIBusiness {
   name: string;
   category: string;
   address: string;
@@ -76,122 +72,160 @@ interface DiscoveredBusiness {
   website: string | null;
 }
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function buildPrompt(location: string, category: string | null, coords: { latitude: number; longitude: number }): string {
+  const categoryPrompt = category
+    ? `Focus specifically on "${category}" businesses.`
+    : `Include a mix of categories: ${VALID_CATEGORIES.join(", ")}.`;
+
+  return `You are a local business directory expert for Toronto, Canada.
+
+Find 10 REAL businesses near "${location}" (coordinates: ${coords.latitude}, ${coords.longitude}).
+${categoryPrompt}
+
+IMPORTANT: Only include REAL businesses that actually exist in Toronto/North York. Do NOT invent fake businesses.
+Provide accurate addresses, phone numbers, and websites where available.
+
+Respond with ONLY valid JSON in this exact format, no other text:
+{
+  "businesses": [
+    {
+      "name": "Business Name",
+      "category": "restaurant",
+      "address": "123 Street, North York, ON",
+      "description": "Brief 1-2 sentence description",
+      "latitude": 43.75,
+      "longitude": -79.41,
+      "phone": "416-555-1234",
+      "website": "https://example.com"
+    }
+  ]
+}`;
 }
 
-async function searchNominatimPOIs(
-  lat: number,
-  lon: number,
-  searchQuery: string,
-  category: string,
-  limit: number = 5
-): Promise<DiscoveredBusiness[]> {
+function parseAIResponse(text: string): AIBusiness[] {
   try {
-    // Use Nominatim's search with viewbox to find real POIs near the location
-    const delta = 0.015; // ~1.5km bounding box
-    const viewbox = `${lon - delta},${lat + delta},${lon + delta},${lat - delta}`;
-    const q = encodeURIComponent(searchQuery);
-    const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=${limit}&viewbox=${viewbox}&bounded=1&addressdetails=1&extratags=1`;
-
-    const response = await fetch(url, {
-      headers: { "User-Agent": "KodaApp/1.0" },
-    });
-
-    if (!response.ok) {
-      console.error(`Nominatim search error for "${searchQuery}":`, response.status);
-      return [];
-    }
-
-    const results = await response.json();
-    const businesses: DiscoveredBusiness[] = [];
-
-    for (const r of results) {
-      // Skip results that are just generic areas/roads
-      if (!r.display_name || r.class === "highway" || r.class === "boundary") continue;
-
-      // Extract a clean name (first part of display_name)
-      const nameParts = r.display_name.split(",");
-      const name = nameParts[0].trim();
-
-      // Skip generic names
-      if (name.length < 3 || /^\d+$/.test(name)) continue;
-
-      // Build address from address details
-      const addr = r.address || {};
-      const addressParts: string[] = [];
-      if (addr.house_number) addressParts.push(addr.house_number);
-      if (addr.road) addressParts.push(addr.road);
-      const city = addr.city || addr.town || addr.village || "Toronto";
-      const province = addr.state || "Ontario";
-      const address = addressParts.length > 0
-        ? `${addressParts.join(" ")}, ${city}, ${province}`
-        : `${city}, ${province}`;
-
-      // Build description from extra tags
-      const extras = r.extratags || {};
-      let description = extras.description || "";
-      if (!description) {
-        const parts: string[] = [];
-        if (extras.cuisine) parts.push(`Cuisine: ${extras.cuisine.replace(/;/g, ", ")}`);
-        if (extras.opening_hours) parts.push(`Hours: ${extras.opening_hours}`);
-        if (parts.length > 0) {
-          description = parts.join(". ");
-        } else {
-          description = `Local ${category} near ${city}.`;
-        }
-      }
-
-      businesses.push({
-        name,
-        category,
-        address,
-        description,
-        latitude: parseFloat(r.lat),
-        longitude: parseFloat(r.lon),
-        phone: extras.phone || extras["contact:phone"] || null,
-        website: extras.website || extras["contact:website"] || null,
-      });
-    }
-
-    return businesses;
+    const parsed = JSON.parse(text);
+    return (parsed.businesses || []).map((b: AIBusiness) => ({
+      ...b,
+      category: VALID_CATEGORIES.includes(b.category) ? b.category : "services",
+    }));
   } catch (err) {
-    console.error(`Nominatim POI search error for "${searchQuery}":`, err);
+    console.error("Failed to parse AI response:", err);
     return [];
   }
 }
 
-async function discoverWithNominatim(lat: number, lon: number, category: string | null): Promise<DiscoveredBusiness[]> {
-  const searches = category
-    ? NOMINATIM_SEARCHES.filter((s) => s.category === category)
-    : NOMINATIM_SEARCHES;
-
-  if (searches.length === 0 && category) {
-    // Fallback: search with the category name directly
-    return searchNominatimPOIs(lat, lon, category, category, 10);
+async function discoverWithGemini(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+  if (!GEMINI_API_KEY) {
+    console.log("GEMINI_API_KEY not configured, skipping Gemini discovery");
+    return [];
   }
 
-  const allBusinesses: DiscoveredBusiness[] = [];
-  const seenNames = new Set<string>();
+  const prompt = buildPrompt(location, category, coords);
 
-  // Run searches sequentially with small delay to respect Nominatim rate limits (1 req/sec)
-  for (const search of searches) {
-    const results = await searchNominatimPOIs(lat, lon, search.query, search.category, category ? 10 : 4);
-    for (const biz of results) {
-      const key = biz.name.toLowerCase();
-      if (!seenNames.has(key)) {
-        seenNames.add(key);
-        allBusinesses.push(biz);
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.3,
+          },
+        }),
       }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Gemini API error:", response.status, errText);
+      return [];
     }
-    // Nominatim usage policy: max 1 request per second
-    if (searches.length > 1) {
-      await delay(1100);
-    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) return [];
+
+    return parseAIResponse(text);
+  } catch (err) {
+    console.error("Gemini discovery error:", err);
+    return [];
+  }
+}
+
+async function discoverWithLovableAI(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.log("LOVABLE_API_KEY not configured, skipping Lovable AI discovery");
+    return [];
   }
 
-  console.log(`Nominatim discovered ${allBusinesses.length} businesses`);
-  return allBusinesses;
+  const prompt = buildPrompt(location, category, coords);
+
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "You are a local business directory expert. Return only valid JSON." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Lovable AI error:", response.status, errText);
+      return [];
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) return [];
+
+    // Try to extract JSON from the response (may be wrapped in markdown)
+    let jsonStr = text;
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    }
+
+    return parseAIResponse(jsonStr);
+  } catch (err) {
+    console.error("Lovable AI discovery error:", err);
+    return [];
+  }
+}
+
+async function discoverWithAI(location: string, category: string | null, coords: { latitude: number; longitude: number }): Promise<AIBusiness[]> {
+  // Try Gemini first
+  console.log("Trying Gemini API for AI discovery...");
+  const geminiResults = await discoverWithGemini(location, category, coords);
+  if (geminiResults.length > 0) {
+    console.log(`Gemini returned ${geminiResults.length} businesses`);
+    return geminiResults;
+  }
+
+  // Fallback to Lovable AI
+  console.log("Gemini failed or returned no results, falling back to Lovable AI...");
+  const lovableResults = await discoverWithLovableAI(location, category, coords);
+  if (lovableResults.length > 0) {
+    console.log(`Lovable AI returned ${lovableResults.length} businesses`);
+    return lovableResults;
+  }
+
+  console.log("Both AI providers failed or returned no results, will use DB results only");
+  return [];
 }
 
 serve(async (req) => {
@@ -200,6 +234,18 @@ serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    let userId = "anonymous";
+    if (authHeader?.startsWith("Bearer ")) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+      const sb = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await sb.auth.getUser();
+      if (user?.id) userId = user.id;
+    }
+
     const body = await req.json();
     const validation = validateInput(body);
     if (!validation.ok) {
@@ -209,7 +255,7 @@ serve(async (req) => {
     }
 
     const { location, category } = validation;
-    console.log("Discovering businesses near:", location);
+    console.log("Geocoding location:", location, "for user:", userId);
 
     const coords = await geocodeAddress(location);
     if (!coords) {
@@ -223,15 +269,15 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
-    // Run DB query and Nominatim discovery in parallel
-    const [dbResult, osmBusinesses] = await Promise.all([
+    // Run DB query and AI discovery in parallel
+    const [dbResult, aiBusinesses] = await Promise.all([
       serviceClient.rpc("find_nearby_businesses", {
         user_lat: coords.latitude,
         user_lng: coords.longitude,
         result_limit: 20,
         category_filter: category,
       }),
-      discoverWithNominatim(coords.latitude, coords.longitude, category),
+      discoverWithAI(location, category, coords),
     ]);
 
     if (dbResult.error) {
@@ -239,25 +285,25 @@ serve(async (req) => {
     }
 
     const dbBusinesses = dbResult.data || [];
-    console.log(`Found ${dbBusinesses.length} DB businesses, ${osmBusinesses.length} OSM businesses`);
+    console.log(`Found ${dbBusinesses.length} DB businesses, ${aiBusinesses.length} AI businesses`);
 
-    // Deduplicate OSM results against DB
+    // Deduplicate AI results against DB
     const dbNames = new Set(dbBusinesses.map((b: { name: string }) => b.name.toLowerCase()));
-    const newBusinesses = osmBusinesses.filter((osm) => !dbNames.has(osm.name.toLowerCase()));
+    const newAIBusinesses = aiBusinesses.filter((ai) => !dbNames.has(ai.name.toLowerCase()));
 
-    // Save new OSM businesses to the database
+    // Save new AI businesses to the database
     let savedBusinesses: any[] = [];
-    if (newBusinesses.length > 0) {
-      const rows = newBusinesses.map((osm) => ({
-        name: osm.name,
-        category: osm.category,
-        address: osm.address,
-        description: osm.description,
-        latitude: osm.latitude,
-        longitude: osm.longitude,
-        phone: osm.phone || null,
-        website: osm.website || null,
-        is_verified: true,
+    if (newAIBusinesses.length > 0) {
+      const rows = newAIBusinesses.map((ai) => ({
+        name: ai.name,
+        category: ai.category,
+        address: ai.address,
+        description: ai.description,
+        latitude: ai.latitude,
+        longitude: ai.longitude,
+        phone: ai.phone || null,
+        website: ai.website || null,
+        is_verified: false,
         average_rating: 0,
         review_count: 0,
       }));
@@ -268,7 +314,7 @@ serve(async (req) => {
         .select();
 
       if (insertError) {
-        console.error("Error saving businesses:", insertError);
+        console.error("Error saving AI businesses:", insertError);
         savedBusinesses = rows.map((r) => ({
           ...r,
           id: crypto.randomUUID(),
@@ -278,12 +324,13 @@ serve(async (req) => {
         }));
       } else {
         savedBusinesses = inserted || [];
-        console.log(`Saved ${savedBusinesses.length} new businesses to database`);
+        console.log(`Saved ${savedBusinesses.length} new AI businesses to database`);
       }
     }
 
     const allBusinesses = [...dbBusinesses, ...savedBusinesses];
 
+    // Always return results — even if AI failed, DB results are returned
     return new Response(JSON.stringify({ businesses: allBusinesses }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
