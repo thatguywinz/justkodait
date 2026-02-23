@@ -117,25 +117,16 @@ async function searchNominatimPOIs(
       // Skip generic names
       if (name.length < 3 || /^\d+$/.test(name)) continue;
 
-      // Build address from address details or display_name fallback
+      // Build address from address details
       const addr = r.address || {};
       const addressParts: string[] = [];
       if (addr.house_number) addressParts.push(addr.house_number);
       if (addr.road) addressParts.push(addr.road);
-      const city = addr.city || addr.town || addr.village || addr.suburb || "Toronto";
-      const province = addr.state || "ON";
-      const postcode = addr.postcode || "";
-      let address: string;
-      if (addressParts.length > 0) {
-        address = postcode
-          ? `${addressParts.join(" ")}, ${city}, ${province} ${postcode}`
-          : `${addressParts.join(" ")}, ${city}, ${province}`;
-      } else {
-        // Use display_name parts as fallback (skip name, take next 2-3 parts)
-        const dpParts = r.display_name.split(",").map((s: string) => s.trim());
-        const addrFromDisplay = dpParts.slice(1, 4).join(", ");
-        address = addrFromDisplay || `${city}, ${province}`;
-      }
+      const city = addr.city || addr.town || addr.village || "Toronto";
+      const province = addr.state || "Ontario";
+      const address = addressParts.length > 0
+        ? `${addressParts.join(" ")}, ${city}, ${province}`
+        : `${city}, ${province}`;
 
       // Build description from extra tags
       const extras = r.extratags || {};
